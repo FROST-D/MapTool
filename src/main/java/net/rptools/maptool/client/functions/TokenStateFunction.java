@@ -42,7 +42,7 @@ public class TokenStateFunction extends AbstractFunction {
 	}
 
 	private TokenStateFunction() {
-		super(0, 3, "getState", "setState", "setAllStates", "getTokenStates");
+		super(0, 3, "getState", "setState", "setAllStates", "getTokenStates", "getTokenActiveStates");
 	}
 
 	@Override
@@ -57,6 +57,8 @@ public class TokenStateFunction extends AbstractFunction {
 			return setState(parser, args);
 		} else if (functionName.equals("getTokenStates")) {
 			return getTokenStates(parser, args);
+		} else if (functionName.equals("getTokenActiveStates")) {
+			return getTokenActiveStates(parser, args);
 		} else {
 			throw new ParserException(I18N.getText("macro.function.general.unknownFunction", functionName));
 		}
@@ -330,4 +332,55 @@ public class TokenStateFunction extends AbstractFunction {
 		}
 	}
 
+    /**
+     * Gets a list of the enabled token states.
+     *
+     * @param parser
+     *            The parser.
+     * @param args
+     *            The arguments. String delim - String token_id
+     * @return A string with the enabled states.
+     */
+	public String getTokenActiveStates(Parser parser,List<Object> args)  throws ParserException  {
+		String delim = args.size() > 0 ? args.get(0).toString() : ",";
+		Token token;
+
+        if (args.size() <= 1) {
+            MapToolVariableResolver res = (MapToolVariableResolver) parser.getVariableResolver();
+            token = res.getTokenInContext();
+            if (token == null) {
+                return I18N.getText("macro.function.general.noImpersonated", "getTokenActiveStates");
+            }
+        } else if (args.size() == 2) {
+            if (!MapTool.getParser().isMacroTrusted()) {
+                return I18N.getText("macro.function.general.noPermOther", "getTokenActiveStates");
+            }
+            token = FindTokenFunctions.findToken(args.get(1).toString(), null);
+            if (token == null) {
+                return I18N.getText("macro.function.general.unknownToken", "getTokenActiveStates", args.get(1).toString());
+            }
+        } else {
+            throw new ParserException(I18N.getText("macro.function.general.tooManyParam", "getTokenActiveStates", 2, args.size()));
+        }
+
+		Set<String> activeStates =  new HashSet<String>();
+        for (String entry : token.getStatePropertyNames()){
+			if ((boolean)token.getState(entry) == true){
+				activeStates.add(entry);
+			}
+		}
+
+		StringBuilder sb = new StringBuilder();
+		if ("json".equals(delim)) {
+			return JSONArray.fromObject(activeStates).toString();
+		} else {
+			for (String s : activeStates) {
+				if (sb.length() > 0) {
+					sb.append(delim);
+				}
+				sb.append(s);
+			}
+			return sb.toString();
+		}
+	}
 }
